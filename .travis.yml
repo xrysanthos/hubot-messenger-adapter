@@ -13,10 +13,9 @@ script:
 deploy:
   skip_cleanup: true
   provider: npm
-  email: apispots@gmail.com
+  email: chrysanthos.spiliotopoulos@gmail.com
   api_key: $NPM_API_KEY
   on:
-    branch: master
     tags: true
 
 notifications:
