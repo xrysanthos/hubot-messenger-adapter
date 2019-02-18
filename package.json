@@ -1,0 +1,26 @@
+{
+  "name": "hubot-messenger-adapter",
+  "version": "1.0.0",
+  "private": false,
+  "author": "Chris Spiliotopoulos <chrysanthos.spiliotopoulos@gmail.com>",
+  "description": "Hubot FB Messenger adapter",
+  "dependencies": {
+    "fb-messenger-bot-api": "^4.3.1",
+    "mime": "^2.4.0",
+    "parent-require": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.2.3",
+    "@babel/core": "^7.2.2",
+    "@babel/node": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
+    "eslint": "^5.14.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.14.0",
+    "standard-version": "^5.0.0"
+  },
+  "main": "src/adapter.js",
+  "scripts": {
+    "release": "standard-version"
+  }
+}

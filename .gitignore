@@ -1,0 +1,14 @@
+.DS_Store*
+.hubot_history
+/.settings/
+/.project
+/.gitkeep
+/target/
+/.tmp/
+/node_modules/
+/npm-debug.log
+/newrelic.js.bak
+/.classpath
+package-lock.json
+bin/*
+.env
