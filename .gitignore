@@ -12,3 +12,5 @@
 package-lock.json
 bin/*
 .env
+docs/_site
+docs/Gemfile.lock
