@@ -1,6 +1,6 @@
 {
   "name": "hubot-messenger-adapter",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "private": false,
   "author": "Chris Spiliotopoulos <chrysanthos.spiliotopoulos@gmail.com>",
   "description": "Hubot FB Messenger adapter",
