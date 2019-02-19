@@ -68,7 +68,11 @@ A [Hubot](https://hubot.github.com) adapter for the [Facebook Messenger Platform
 This project is a port of the [hubot-fb](https://github.com/chen-ye/hubot-fb){: target="_blank"}
 adapter originally developed by **Chen Ye** in CoffeeScript and converted into pure Node JavaScript.
 
-The adapter is compatible with the **v3.2** Messenger platform API including:
+The adapter is also integrated with the fantastic [NodeJS Facebook Messenger API library](https://github.com/crisboarna/fb-messenger-bot-api){: target="_blank"}
+that is fully covering the latest Messenger API and provides support for rich media messaging as well as other goodies.  
+
+
+The adapter is compatible with the **v3.x** Messenger platform API including:
 
 - Token validation and automatic webhook setup
 - Resolution of user profiles (name and profile pictures from ids)
@@ -78,6 +82,7 @@ The adapter is compatible with the **v3.2** Messenger platform API including:
 - Template postbacks
 
 <a class="button" href="https://github.com/chen-ye/hubot-fb" target="_blank"><i class="fab fa-github"></i> Original Project</a>
+<a class="button" href="https://github.com/crisboarna/fb-messenger-bot-api" target="_blank"><i class="fab fa-github"></i> FB Messenger API</a>
 
 </div>
 
