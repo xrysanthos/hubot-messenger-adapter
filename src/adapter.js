@@ -1,5 +1,3 @@
-
-
 let Adapter = null;
 let TextMessage = null;
 let User = null;
@@ -20,7 +18,12 @@ try {
 
 const Mime = require('mime');
 const crypto = require('crypto');
-const facebook = require('fb-messenger-bot-api');
+
+const {
+  FacebookMessagingAPIClient,
+  FacebookMessageParser
+} = require('fb-messenger-bot-api');
+
 
 /**
  * Hubot Facebook Messenger adapter.
@@ -78,7 +81,7 @@ class FacebookMessengerAdapter extends Adapter {
      * Facebook clients
      */
     this.fb = {
-      messageClient: new facebook.FacebookMessagingAPIClient(this.token)
+      messageClient: new FacebookMessagingAPIClient(this.token)
     };
 
   }
@@ -150,13 +153,6 @@ class FacebookMessengerAdapter extends Adapter {
    */
   async _sendText(user, msg) {
 
-    const data = {
-      recipient: {
-        id: user
-      },
-      message: {}
-    };
-
     // send images enabled?
     if (this.sendImages) {
 
@@ -164,23 +160,18 @@ class FacebookMessengerAdapter extends Adapter {
       const mime = Mime.getType(msg);
 
       if ((mime === 'image/jpeg') || (mime === 'image/png') || (mime === 'image/gif')) {
-        data.message.attachment = {
-          type: 'image',
-          payload: {
-            url: msg
-          }
-        };
+
+        // send an image message
+        await this.fb.messageClient.sendImageMessage(user, msg);
+
       } else {
-        // send clipped text
-        data.message.text = msg.substring(0, this.msg_maxlength);
+        // send a text message
+        await this.fb.messageClient.sendTextMessage(user, msg);
       }
     } else {
-      // send text message
-      data.message.text = msg;
+      // send a text message
+      await this.fb.messageClient.sendTextMessage(user, msg);
     }
-
-    // send the message through the API
-    await this._sendData(data);
   }
 
 
@@ -217,7 +208,9 @@ class FacebookMessengerAdapter extends Adapter {
 
       // call the send message API
       this.robot.http(this.messageEndpoint)
-        .query({access_token: self.token})
+        .query({
+          access_token: self.token
+        })
         .header('Content-Type', 'application/json')
         .post(JSON.stringify(data))((error, response, body) => {
 
@@ -256,7 +249,7 @@ class FacebookMessengerAdapter extends Adapter {
 
     const self = this;
 
-    const user = this.robot.brain.data.users[event.sender.id];
+    let user = this.robot.brain.data.users[event.sender.id];
 
     if (!user) {
 
@@ -264,15 +257,11 @@ class FacebookMessengerAdapter extends Adapter {
       const page = event.recipient.id;
 
       // get the user details from the Facebook API
-      const user = await this._getUser(userId, page);
-
-      // dispatch the event
-      self._dispatch(event, user);
-
-    } else {
-      // dispatch the event
-      self._dispatch(event, user);
+      user = await this._getUser(userId, page);
     }
+
+    // dispatch the event
+    self._dispatch(event, user);
   }
 
   /**
@@ -314,7 +303,7 @@ class FacebookMessengerAdapter extends Adapter {
     if (typeof event.message.attachments !== 'undefined') {
 
       /*
-       * attachments
+       * with attachments
        */
       envelope.attachments = event.message.attachments;
       this.robot.emit('fb_richMsg', envelope);
@@ -326,7 +315,7 @@ class FacebookMessengerAdapter extends Adapter {
     } else if (typeof event.message.text !== 'undefined') {
 
       /*
-       * text
+       * plain text
        */
 
       let text = event.message.text;
@@ -341,7 +330,7 @@ class FacebookMessengerAdapter extends Adapter {
       // pass the message to the scripts
       this.receive(msg);
 
-      this.robot.logger.info(`Reply message to room/message: ${envelope.user.name}/${event.message.mid}`);
+      this.robot.logger.debug(`Reply message to room/message: ${envelope.user.name}/${event.message.mid}`);
     }
 
   }
@@ -429,46 +418,68 @@ class FacebookMessengerAdapter extends Adapter {
    * @param  {[type]} page   [description]
    * @return {[type]}        [description]
    */
-  _getUser(userId, page) {
+  async _getUser(userId, page) {
 
     const self = this;
 
-    return new Promise(((resolve, reject) => {
+    const profile = await this.fb.messageClient.getUserProfile(userId, ['first_name', 'last_name', 'profile_pic']);
 
-      self.robot.http(`${self.apiURL}/${userId}`)
-        .query({
-          fields: 'first_name,last_name,profile_pic',
-          access_token: self.token
-        })
-        .get()((error, response, body) => {
+    profile.name = profile.first_name;
+    profile.room = page;
 
-          if (error) {
-            reject(error);
-          } else if (response.statusCode === 200) {
+    // create a new user instance
+    const user = new User(userId, profile);
 
-            // parse the user info
-            const userData = JSON.parse(body);
-            userData.name = userData.first_name;
-            userData.room = page;
+    // remember this user
+    self.robot.brain.data.users[userId] = user;
 
-            // create a new user instance
-            const user = new User(userId, userData);
-
-            // remember this user
-            self.robot.brain.data.users[userId] = user;
-
-            // return the user instance
-            resolve(user);
-
-          } else {
-            // something went wrong
-            reject(new Error(body));
-          }
-        });
-
-    }));
+    // return the user instance
+    return user;
   }
 
+  /**
+   * Checks whether an incoming payload is
+   * coming from a valid source.
+   *
+   * @param  {[type]} xHubSignature     [description]
+   * @param  {[type]} applicationSecret [description]
+   * @param  {[type]} body              [description]
+   * @return {[type]}                   [description]
+   */
+  isMessageSourceValid(xHubSignature, applicationSecret, body) {
+
+    if (!xHubSignature || Object.prototype.toString.call(xHubSignature) !== '[object String]') {
+      this.robot.logger.error('Missing x-hub-signature header');
+      return false;
+    }
+
+    if (typeof applicationSecret === 'undefined') {
+      this.robot.logger.error('Missing FB application token');
+      return false;
+    }
+
+    // split the header value at '=' char
+    const xHubSignatureValueParts = xHubSignature.split('=');
+
+    // the header should contain 2 parts
+    if (xHubSignatureValueParts.length !== 2) {
+      this.robot.logger.error('Invalid x-hub-signature value');
+      return false;
+    }
+
+    // get the raw string payload
+    const payload = JSON.stringify(body);
+
+    // encode all 3 parts
+    const authenticationCode = crypto.createHmac(xHubSignatureValueParts[0], applicationSecret).update(payload).digest('hex');
+
+    // check if the calculated code matches the given one
+    if (authenticationCode === xHubSignatureValueParts[1]) {
+      return true;
+    }
+
+    return false;
+  }
 
   /**
    * Starts the adapter.
@@ -494,9 +505,11 @@ class FacebookMessengerAdapter extends Adapter {
       })
       .post()((error, response, body) => {
 
+        // parse the response body
         const json = JSON.parse(body);
 
         if (typeof json.error !== 'undefined') {
+          // an error occured - stop the app
           this.robot.logger.error(`Failed to subscribe app to page [${json.error.message}]`);
           process.exit(1);
         }
@@ -509,7 +522,7 @@ class FacebookMessengerAdapter extends Adapter {
      * GET /hubot/fb
      *
      */
-    this.robot.router.get([this.routeURL], (req, res) => {
+    this.robot.router.get(this.routeURL, (req, res) => {
 
       /*
        * token verification challenge
@@ -525,21 +538,32 @@ class FacebookMessengerAdapter extends Adapter {
     /*
      * POST /hubot/fb
      */
-    this.robot.router.post([this.routeURL], (req, res) => {
+    this.robot.router.post(this.routeURL, (req, res) => {
 
-      // payload received
-      // self.robot.logger.debug(`Received payload: ${JSON.stringify(req.body)}`);
+      // check if the message source is valid
+      const isValid = self.isMessageSourceValid(req.headers['x-hub-signature'], this.app_secret, req.body);
 
-      // get the list of received messages
-      const messages = req.body.entry[0].messaging;
+      if (!isValid) {
 
-      // process each message
-      for (const message of messages) {
-        self._receiveAPI(message);
+        // return a forbidden status
+        res.sendStatus(403);
+      } else {
+
+        // payload received
+        const payload = req.body;
+
+        // parse the payload into dstinct messages
+        const messages = FacebookMessageParser.parsePayload(payload);
+
+        // process each message
+        for (const message of messages) {
+          self._receiveAPI(message);
+        }
+
+        // acknowledged
+        res.sendStatus(200);
       }
 
-      // ack
-      res.sendStatus(200);
     });
 
     // request an access token
@@ -558,6 +582,7 @@ class FacebookMessengerAdapter extends Adapter {
       })
         .post()((error, response, body) => {
 
+          // parse the payload
           const json = JSON.parse(body);
 
           if (typeof json.error !== 'undefined') {
