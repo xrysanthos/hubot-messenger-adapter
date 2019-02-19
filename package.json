@@ -13,7 +13,12 @@
     "url": "https://github.com/spilio/hubot-messenger-adapter/issues"
   },
   "homepage": "https://spilio.github.io/hubot-messenger-adapter",
-  "keywords": ["hubot", "facebook", "messenger", "chatbot"],
+  "keywords": [
+    "hubot",
+    "facebook",
+    "messenger",
+    "chatbot"
+  ],
   "dependencies": {
     "fb-messenger-bot-api": "^4.3.1",
     "mime": "^2.4.0",
